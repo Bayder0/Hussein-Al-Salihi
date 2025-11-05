@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام مسح الدرجات - الفيزياء</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1A237E 0%, #2979FF 100%);
+            min-height: 100vh;
+            padding: 20px;
+            direction: rtl;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1A237E 0%, #2979FF 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        header::before {
+            content: '⚡';
+            position: absolute;
+            font-size: 120px;
+            opacity: 0.1;
+            top: -20px;
+            right: -20px;
+            animation: pulse 3s ease-in-out infinite;
+        }
+
+        header::after {
+            content: '🔬';
+            position: absolute;
+            font-size: 100px;
+            opacity: 0.1;
+            bottom: -20px;
+            left: -20px;
+            animation: pulse 4s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+
+        .scan-section {
+            padding: 30px;
+            text-align: center;
+        }
+
+        .section-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #1A237E;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 30px;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #FFEB3B);
+        }
+
+        .section-title::after {
+            content: '';
+            width: 30px;
+            height: 3px;
+            background: linear-gradient(90deg, #FFEB3B, transparent);
+        }
+
+        .camera-container {
+            position: relative;
+            width: 100%;
+            max-width: 640px;
+            margin: 20px auto;
+            background: #000;
+            border-radius: 15px;
+            overflow: hidden;
+            aspect-ratio: 4/3;
+            border: 3px solid #2979FF;
+            box-shadow: 0 0 30px rgba(41, 121, 255, 0.4);
+        }
+
+        #videoElement, #videoElement2 {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+        }
+
+        .capture-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+        }
+
+        .guide-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 500px;
+            height: 370px;
+            max-width: 85%;
+            max-height: 60%;
+            border: 4px solid #FFEB3B;
+            border-radius: 12px;
+            box-shadow: 0 0 25px rgba(255, 235, 59, 0.6);
+            animation: glow 2s ease-in-out infinite;
+        }
+
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 25px rgba(255, 235, 59, 0.6); }
+            50% { box-shadow: 0 0 40px rgba(255, 235, 59, 0.9); }
+        }
+        
+        .guide-box::before,
+        .guide-box::after {
+            content: '';
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border: 4px solid #FFEB3B;
+        }
+        
+        .guide-box::before {
+            top: -4px;
+            left: -4px;
+            border-right: none;
+            border-bottom: none;
+            border-radius: 12px 0 0 0;
+        }
+        
+        .guide-box::after {
+            top: -4px;
+            right: -4px;
+            border-left: none;
+            border-bottom: none;
+            border-radius: 0 12px 0 0;
+        }
+        
+        .guide-corners {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 500px;
+            height: 370px;
+            max-width: 85%;
+            max-height: 60%;
+            pointer-events: none;
+        }
+        
+        .guide-corners::before,
+        .guide-corners::after {
+            content: '';
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border: 4px solid #FFEB3B;
+        }
+        
+        .guide-corners::before {
+            bottom: -4px;
+            left: -4px;
+            border-right: none;
+            border-top: none;
+            border-radius: 0 0 0 12px;
+        }
+        
+        .guide-corners::after {
+            bottom: -4px;
+            right: -4px;
+            border-left: none;
+            border-top: none;
+            border-radius: 0 0 12px 0;
+        }
+
+        .guide-text {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(26, 35, 126, 0.9);
+            color: #FFEB3B;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .capture-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: white;
+            border: 5px solid #2979FF;
+            cursor: pointer;
+            margin: 20px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+            transition: all 0.3s;
+            box-shadow: 0 5px 20px rgba(41, 121, 255, 0.4);
+        }
+
+        .capture-btn:hover {
+            transform: scale(1.1);
+            background: #2979FF;
+            box-shadow: 0 8px 30px rgba(255, 235, 59, 0.6);
+        }
+
+        .capture-btn:active {
+            transform: scale(0.95);
+        }
+
+        canvas {
+            display: none;
+        }
+
+        .result-display {
+            background: linear-gradient(135deg, #F5F7FA 0%, #E8EAF6 100%);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+            border: 2px solid #2979FF;
+        }
+
+        .result-display.show {
+            display: block;
+            animation: slideDown 0.3s;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .result-label {
+            font-size: 14px;
+            color: #1A237E;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .result-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #2979FF;
+            margin-bottom: 15px;
+            text-shadow: 0 2px 10px rgba(41, 121, 255, 0.3);
+        }
+
+        .result-value.error {
+            color: #ef4444;
+        }
+
+        .correction-input {
+            margin-top: 15px;
+        }
+
+        .correction-input label {
+            color: #1A237E;
+            font-size: 14px;
+            font-weight: bold;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .correction-input input {
+            width: 150px;
+            padding: 12px;
+            font-size: 18px;
+            border: 2px solid #2979FF;
+            border-radius: 8px;
+            text-align: center;
+            background: white;
+        }
+
+        .correction-input input:focus {
+            outline: none;
+            border-color: #FFEB3B;
+            box-shadow: 0 0 10px rgba(255, 235, 59, 0.4);
+        }
+
+        .btn {
+            padding: 15px 40px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #1A237E 0%, #2979FF 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(41, 121, 255, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #2979FF 0%, #00BCD4 100%);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 188, 212, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(239, 68, 68, 0.4);
+        }
+
+        .data-table {
+            padding: 30px;
+            background: #F5F7FA;
+        }
+
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .table-header h3 {
+            color: #1A237E;
+            font-size: 1.3em;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        th {
+            background: linear-gradient(135deg, #1A237E 0%, #2979FF 100%);
+            color: white;
+            padding: 15px;
+            text-align: center;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #E8EAF6;
+            text-align: center;
+        }
+
+        tbody tr:hover {
+            background: #E8EAF6;
+            transition: all 0.2s;
+        }
+
+        .status {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: linear-gradient(135deg, #2979FF 0%, #00BCD4 100%);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 1000;
+            font-weight: bold;
+        }
+
+        .status.show {
+            display: block;
+            animation: slideIn 0.3s;
+        }
+
+        .debug-box {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(26, 35, 126, 0.95);
+            color: #FFEB3B;
+            padding: 10px;
+            border-radius: 10px;
+            font-family: monospace;
+            font-size: 11px;
+            line-height: 1.4;
+            z-index: 999;
+            display: none;
+            border: 2px solid #2979FF;
+        }
+
+        .debug-box.show {
+            display: block;
+        }
+
+        .debug-box .debug-line {
+            margin: 2px 0;
+            word-wrap: break-word;
+        }
+
+        .debug-box .debug-error {
+            color: #ff4444;
+        }
+
+        .debug-box .debug-success {
+            color: #00ff00;
+        }
+
+        .debug-box .debug-info {
+            color: #FFEB3B;
+        }
+
+        .debug-toggle {
+            position: fixed;
+            bottom: 220px;
+            left: 20px;
+            background: linear-gradient(135deg, #1A237E 0%, #2979FF 100%);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 50%;
+            font-size: 20px;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(-400px); }
+            to { transform: translateX(0); }
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #E8EAF6;
+            border-top: 4px solid #FFEB3B;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading p {
+            color: #1A237E;
+            font-weight: bold;
+        }
+
+        .disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        
+        .section-divider {
+            height: 3px;
+            background: linear-gradient(to left, transparent, #FFEB3B, transparent);
+            margin: 20px 0;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.5em;
+            }
+
+            .btn {
+                width: 100%;
+            }
+
+            .table-header {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚡ نظام مسح الدرجات</h1>
+            <p>أ. حسين الصالحي - الفيزياء</p>
+        </header>
+
+        <!-- STEP 1: BARCODE -->
+        <div class="scan-section" id="step1Section">
+            <div class="section-title">مسح الباركود</div>
+            
+            <div class="camera-container">
+                <video id="videoElement" autoplay playsinline></video>
+                <div class="capture-overlay">
+                    <div class="guide-box"></div>
+                    <div class="guide-corners"></div>
+                    <div class="guide-text" id="guideText">وجّه الكاميرا نحو الباركود</div>
+                </div>
+            </div>
+            
+            <div class="capture-btn" id="captureBtn">📷</div>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>جارٍ المعالجة...</p>
+            </div>
+
+            <canvas id="canvas"></canvas>
+
+            <div class="result-display" id="barcodeResult">
+                <div class="result-label">رقم الطالب:</div>
+                <div class="result-value" id="studentIdValue">-</div>
+                <button class="btn btn-danger" id="rescanBarcodeBtn">🔄 إعادة المسح</button>
+            </div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <!-- STEP 2: MARK -->
+        <div class="scan-section disabled" id="step2Section">
+            <div class="section-title">مسح الدرجة</div>
+            
+            <div class="camera-container">
+                <video id="videoElement2" autoplay playsinline></video>
+                <div class="capture-overlay">
+                    <div class="guide-box"></div>
+                    <div class="guide-corners"></div>
+                    <div class="guide-text">وجّه الكاميرا نحو الدرجة المكتوبة</div>
+                </div>
+            </div>
+            
+            <div class="capture-btn" id="captureBtn2">📷</div>
+            
+            <div class="loading" id="loading2">
+                <div class="spinner"></div>
+                <p>الذكاء الاصطناعي يحلل...</p>
+            </div>
+
+            <canvas id="canvas2"></canvas>
+
+            <div class="result-display" id="markResult">
+                <div class="result-label">الدرجة المكتشفة:</div>
+                <div class="result-value" id="markValue">-</div>
+                
+                <div class="correction-input">
+                    <label>تصحيح الدرجة:</label>
+                    <input type="number" id="correctMark" min="0" max="100" placeholder="الدرجة">
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-success" id="saveBtn">💾 حفظ</button>
+                    <button class="btn btn-danger" id="rescanMarkBtn">🔄 إعادة المسح</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABLE -->
+        <div class="data-table">
+            <div class="table-header">
+                <h3>📋 السجل (<span id="count">0</span>)</h3>
+                <button class="btn btn-primary" id="exportBtn">💾 تصدير CSV</button>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>رقم الطالب</th>
+                        <th>الدرجة</th>
+                        <th>الوقت</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr>
+                        <td colspan="4" style="color: #999; padding: 40px;">
+                            ابدأ المسح
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="status" id="status">✅ تم الحفظ!</div>
+
+    <button class="debug-toggle" onclick="toggleDebug()" title="عرض سجل الأخطاء">🐛</button>
+    <div class="debug-box" id="debugBox"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
