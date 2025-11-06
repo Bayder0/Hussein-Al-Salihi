@@ -2,53 +2,38 @@
 let entries = JSON.parse(localStorage.getItem('autoEntries')) || [];
 let currentStudentId = null;
 let currentMark = null;
-let stream1 = null;
-let stream2 = null;
+let stream = null;
 
 // DOM Elements
 const videoElement = document.getElementById('videoElement');
-const videoElement2 = document.getElementById('videoElement2');
 const canvas = document.getElementById('canvas');
-const canvas2 = document.getElementById('canvas2');
 const ctx = canvas.getContext('2d');
-const ctx2 = canvas2.getContext('2d');
-
-const step1Section = document.getElementById('step1Section');
-const step2Section = document.getElementById('step2Section');
 
 const captureBtn = document.getElementById('captureBtn');
-const captureBtn2 = document.getElementById('captureBtn2');
 const loading = document.getElementById('loading');
-const loading2 = document.getElementById('loading2');
 
-const barcodeResult = document.getElementById('barcodeResult');
-const markResult = document.getElementById('markResult');
+const resultsContainer = document.getElementById('resultsContainer');
 const studentIdValue = document.getElementById('studentIdValue');
 const markValue = document.getElementById('markValue');
 const correctMarkInput = document.getElementById('correctMark');
 
-const nextBtn = document.getElementById('nextBtn');
-const rescanBarcodeBtn = document.getElementById('rescanBarcodeBtn');
-const rescanMarkBtn = document.getElementById('rescanMarkBtn');
+const rescanBtn = document.getElementById('rescanBtn');
 const saveBtn = document.getElementById('saveBtn');
 const exportBtn = document.getElementById('exportBtn');
 
 const tableBody = document.getElementById('tableBody');
 const countEl = document.getElementById('count');
 const status = document.getElementById('status');
-const guideText = document.getElementById('guideText');
 
 // ============================================
-// DEBUG FUNCTIONS - Shows logs on screen for mobile
+// DEBUG FUNCTIONS
 // ============================================
 let debugLogs = [];
 const maxDebugLogs = 50;
 
 function debugLog(message, type = 'info') {
-    // Also log to console
     console.log(message);
     
-    // Add to debug box
     const timestamp = new Date().toLocaleTimeString();
     debugLogs.push({
         time: timestamp,
@@ -56,7 +41,6 @@ function debugLog(message, type = 'info') {
         type: type
     });
     
-    // Keep only last 50 logs
     if (debugLogs.length > maxDebugLogs) {
         debugLogs.shift();
     }
@@ -77,7 +61,6 @@ function updateDebugBox() {
         return `<div class="${className}">[${log.time}] ${log.message}</div>`;
     }).join('');
     
-    // Auto scroll to bottom
     debugBox.scrollTop = debugBox.scrollHeight;
 }
 
@@ -96,7 +79,6 @@ function clearDebug() {
     updateDebugBox();
 }
 
-// Auto-show debug on errors
 window.addEventListener('error', function(e) {
     debugLog('❌ Error: ' + e.message, 'error');
     document.getElementById('debugBox').classList.add('show');
@@ -105,16 +87,15 @@ window.addEventListener('error', function(e) {
 debugLog('🚀 App started', 'success');
 
 // ============================================
-// CAMERA - PROPER START/STOP MANAGEMENT
+// CAMERA MANAGEMENT
 // ============================================
-async function startCamera1() {
+async function startCamera() {
     try {
-        console.log('📱 Starting camera 1...');
+        console.log('📱 Starting camera...');
         
-        // Stop camera 1 if already running
-        stopCamera1();
+        stopCamera();
         
-        stream1 = await navigator.mediaDevices.getUserMedia({
+        stream = await navigator.mediaDevices.getUserMedia({
             video: {
                 facingMode: 'environment',
                 width: { ideal: 1920 },
@@ -122,84 +103,39 @@ async function startCamera1() {
             }
         });
         
-        videoElement.srcObject = stream1;
+        videoElement.srcObject = stream;
         
-        // Wait for video to be ready
         await new Promise((resolve) => {
             videoElement.onloadedmetadata = () => {
                 videoElement.play().then(resolve);
             };
         });
         
-        console.log('✅ Camera 1 started!');
+        console.log('✅ Camera started!');
         
     } catch (err) {
-        console.error('❌ Camera 1 error:', err);
+        console.error('❌ Camera error:', err);
         alert('❌ Camera permission required! Please allow camera access and refresh the page.');
     }
 }
 
-async function startCamera2() {
-    try {
-        console.log('📱 Starting camera 2...');
-        
-        // Stop camera 2 if already running
-        stopCamera2();
-        
-        stream2 = await navigator.mediaDevices.getUserMedia({
-            video: {
-                facingMode: 'environment',
-                width: { ideal: 1920 },
-                height: { ideal: 1080 }
-            }
-        });
-        
-        videoElement2.srcObject = stream2;
-        
-        // Wait for video to be ready
-        await new Promise((resolve) => {
-            videoElement2.onloadedmetadata = () => {
-                videoElement2.play().then(resolve);
-            };
-        });
-        
-        console.log('✅ Camera 2 started!');
-        
-    } catch (err) {
-        console.error('❌ Camera 2 error:', err);
-        alert('❌ Camera permission required!');
-    }
-}
-
-function stopCamera1() {
-    if (stream1) {
-        stream1.getTracks().forEach(track => {
+function stopCamera() {
+    if (stream) {
+        stream.getTracks().forEach(track => {
             track.stop();
-            console.log('🛑 Camera 1 track stopped');
+            console.log('🛑 Camera track stopped');
         });
         videoElement.srcObject = null;
-        stream1 = null;
-    }
-}
-
-function stopCamera2() {
-    if (stream2) {
-        stream2.getTracks().forEach(track => {
-            track.stop();
-            console.log('🛑 Camera 2 track stopped');
-        });
-        videoElement2.srcObject = null;
-        stream2 = null;
+        stream = null;
     }
 }
 
 // ============================================
-// STEP 1: BARCODE
+// CAPTURE AND PROCESS - ONE STEP!
 // ============================================
-async function captureBarcode() {
-    console.log('📸 Capturing barcode...');
+async function captureImage() {
+    console.log('📸 Capturing image...');
     
-    // Check if video is ready
     if (!videoElement.videoWidth || videoElement.videoWidth === 0) {
         alert('⚠️ Camera not ready yet. Please wait a moment.');
         return;
@@ -208,50 +144,86 @@ async function captureBarcode() {
     loading.classList.add('show');
     captureBtn.style.display = 'none';
 
-    canvas.width = videoElement.videoWidth;
-    canvas.height = videoElement.videoHeight;
+    // Capture image
+    const maxWidth = 800;
+    const scale = Math.min(1, maxWidth / videoElement.videoWidth);
+    
+    canvas.width = videoElement.videoWidth * scale;
+    canvas.height = videoElement.videoHeight * scale;
     ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
 
-    const imageData = canvas.toDataURL('image/png');
-    await processBarcode(imageData);
+    const imageData = canvas.toDataURL('image/jpeg', 0.7);
+    
+    debugLog('📸 Image size: ' + Math.round(imageData.length / 1024) + 'KB', 'info');
+    
+    // Process BOTH barcode and mark
+    await processBoth(imageData);
 }
 
-async function processBarcode(imageData) {
+async function processBoth(imageData) {
     try {
-        const result = await detectBarcode(imageData);
+        debugLog('🔍 Processing barcode and mark...', 'info');
         
-        // Always hide loading
+        // Process barcode and mark in parallel
+        const [barcodeResult, markResult] = await Promise.all([
+            detectBarcode(imageData),
+            detectMark(imageData)
+        ]);
+        
         loading.classList.remove('show');
         
-        if (result) {
-            currentStudentId = result;
-            studentIdValue.textContent = result;
+        // Display barcode result
+        if (barcodeResult) {
+            currentStudentId = barcodeResult;
+            studentIdValue.textContent = barcodeResult;
             studentIdValue.classList.remove('error');
-            barcodeResult.classList.add('show');
-            
-            showStatus('✅ Student ID detected! Switching to mark scanning...');
-            
-            // Auto-switch to step 2 after 1.5 seconds
-            setTimeout(() => {
-                goToStep2();
-            }, 1500);
-            
+            debugLog('✅ Barcode: ' + barcodeResult, 'success');
         } else {
+            currentStudentId = null;
             studentIdValue.textContent = '❌ لم يتم الكشف';
             studentIdValue.classList.add('error');
-            barcodeResult.classList.add('show');
-            captureBtn.style.display = 'flex';
-            
-            showStatus('⚠️ Barcode not detected. Try again.');
+            debugLog('❌ Barcode not detected', 'error');
         }
+        
+        // Display mark result
+        if (markResult) {
+            currentMark = markResult;
+            markValue.textContent = markResult;
+            markValue.classList.remove('error');
+            correctMarkInput.value = markResult;
+            debugLog('✅ Mark: ' + markResult, 'success');
+        } else {
+            currentMark = null;
+            markValue.textContent = '❌ لم يتم الكشف';
+            markValue.classList.add('error');
+            correctMarkInput.value = '';
+            debugLog('❌ Mark not detected', 'error');
+        }
+        
+        // Show results
+        resultsContainer.classList.add('show');
+        
+        // Show status
+        if (barcodeResult && markResult) {
+            showStatus('✅ تم الكشف بنجاح!');
+        } else if (barcodeResult || markResult) {
+            showStatus('⚠️ تم الكشف جزئياً - تحقق من النتائج');
+        } else {
+            showStatus('❌ لم يتم الكشف - حاول مجدداً');
+            captureBtn.style.display = 'flex';
+        }
+        
     } catch (err) {
         console.error('Error:', err);
         loading.classList.remove('show');
         captureBtn.style.display = 'flex';
-        alert('❌ Error processing barcode');
+        alert('❌ Error processing image');
     }
 }
 
+// ============================================
+// BARCODE DETECTION
+// ============================================
 function detectBarcode(imageData) {
     return new Promise((resolve) => {
         Quagga.decodeSingle({
@@ -279,222 +251,80 @@ function detectBarcode(imageData) {
     });
 }
 
-function goToStep2() {
-    if (!currentStudentId) {
-        alert('⚠️ Please scan barcode first!');
-        return;
-    }
-    
-    // Enable step 2
-    step2Section.classList.remove('disabled');
-    
-    // Hide camera 1 capture button
-    captureBtn.style.display = 'none';
-    
-    // Stop camera 1 and start camera 2 only if camera 2 isn't already running
-    stopCamera1();
-    
-    // Only start camera 2 if mark hasn't been captured yet
-    if (!currentMark) {
-        captureBtn2.style.display = 'flex';
-        startCamera2();
-    }
-    
-    // Scroll to step 2 smoothly
-    step2Section.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
-function rescanBarcode() {
-    console.log('🔄 Rescanning barcode only...');
-    
-    // Reset ONLY barcode state (keep mark data!)
-    currentStudentId = null;
-    barcodeResult.classList.remove('show');
-    captureBtn.style.display = 'flex';
-    loading.classList.remove('show');
-    
-    // Stop camera 2 if running, but DON'T reset mark data
-    stopCamera2();
-    
-    // Keep step 2 enabled if mark was already scanned
-    // Just hide the camera 2 capture button temporarily
-    if (currentMark) {
-        captureBtn2.style.display = 'none';
-    }
-    
-    // Restart camera 1
-    startCamera1();
-    
-    // Scroll to step 1
-    step1Section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
 // ============================================
-// STEP 2: MARK DETECTION (AI-POWERED!)
+// AI MARK DETECTION
 // ============================================
-async function captureMark() {
-    console.log('📸 Capturing mark...');
-    
-    // Check if video is ready
-    if (!videoElement2.videoWidth || videoElement2.videoWidth === 0) {
-        alert('⚠️ Camera not ready yet. Please wait a moment.');
-        return;
-    }
-    
-    loading2.classList.add('show');
-    captureBtn2.style.display = 'none';
-
-    // Capture at LOWER resolution to reduce file size
-    const maxWidth = 800;  // Reduced from full camera resolution
-    const scale = Math.min(1, maxWidth / videoElement2.videoWidth);
-    
-    canvas2.width = videoElement2.videoWidth * scale;
-    canvas2.height = videoElement2.videoHeight * scale;
-    ctx2.drawImage(videoElement2, 0, 0, canvas2.width, canvas2.height);
-
-    // Compress to JPEG with 70% quality instead of PNG
-    const imageData = canvas2.toDataURL('image/jpeg', 0.7);
-    
-    debugLog('📸 Compressed image size: ' + Math.round(imageData.length / 1024) + 'KB', 'info');
-    
-    await processMark(imageData);
-}
-
-async function processMark(imageData) {
-    try {
-        const result = await detectMark(imageData);
-        
-        // Always hide loading
-        loading2.classList.remove('show');
-        
-        if (result) {
-            currentMark = result;
-            markValue.textContent = result;
-            markValue.classList.remove('error');
-            correctMarkInput.value = result;
-            markResult.classList.add('show');
-            
-            showStatus('✅ Mark detected by AI!');
-        } else {
-            markValue.textContent = '❌ لم يتم الكشف';
-            markValue.classList.add('error');
-            markResult.classList.add('show');
-            captureBtn2.style.display = 'flex';
-            
-            showStatus('⚠️ Mark not detected. Enter manually or rescan.');
-        }
-    } catch (err) {
-        console.error('Error:', err);
-        loading2.classList.remove('show');
-        captureBtn2.style.display = 'flex';
-        alert('❌ Error processing mark');
-    }
-}
-
-/**
- * AI-POWERED MARK DETECTION
- * Uses Cloudflare Worker + OpenAI GPT-4 Vision
- */
 async function detectMark(imageData) {
     try {
         debugLog('🤖 Detecting mark using AI...', 'info');
-        debugLog('📸 Image size: ' + Math.round(imageData.length / 1024) + 'KB', 'info');
         
-        // ✅ YOUR CLOUDFLARE WORKER URL - ALREADY SET!
         const WORKER_URL = 'https://mark-detector.baydershghl.workers.dev';
         
-        debugLog('📡 Worker: ' + WORKER_URL.substring(0, 40) + '...', 'info');
-        debugLog('⏰ Sending request...', 'info');
+        debugLog('📡 Sending to Worker...', 'info');
         
-        // Send image to Cloudflare Worker (which calls OpenAI)
         const response = await fetch(WORKER_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                image: imageData // Send the base64 image
+                image: imageData
             })
         });
         
-        debugLog('📬 Response: ' + response.status + ' ' + response.statusText, 
-                 response.ok ? 'success' : 'error');
+        debugLog('📬 Response: ' + response.status, response.ok ? 'success' : 'error');
         
         if (!response.ok) {
             const error = await response.json();
             debugLog('❌ Error: ' + JSON.stringify(error), 'error');
             
-            // Show user-friendly error
             if (response.status === 401) {
-                alert('❌ API Key Error!\n\nYour OpenAI API key is invalid or not set correctly in Cloudflare Worker.\n\nSteps to fix:\n1. Go to Cloudflare Worker\n2. Settings → Variables\n3. Check OPENAI_API_KEY is encrypted\n4. Try adding it again');
+                alert('❌ API Key Error! Check Cloudflare Worker settings.');
             } else {
-                alert('❌ Worker Error!\nStatus: ' + response.status + '\n\nCheck debug log (bug button) for details.');
+                alert('❌ Worker Error! Status: ' + response.status);
             }
             
-            // Auto-show debug
             document.getElementById('debugBox').classList.add('show');
             return null;
         }
         
         const result = await response.json();
-        debugLog('📊 Response: ' + JSON.stringify(result), 'success');
-        debugLog('🔍 Mark: ' + result.mark, result.mark ? 'success' : 'error');
+        debugLog('📊 Result: ' + JSON.stringify(result), 'success');
         
         if (result.mark) {
             debugLog(`✅ AI detected: ${result.mark}`, 'success');
             return result.mark.toString();
-        } else if (result.mark === null || result.mark === undefined) {
-            debugLog('❌ AI returned null/undefined', 'error');
+        } else {
+            debugLog('❌ AI returned null', 'error');
             
             if (result.raw_response) {
                 debugLog('⚠️ AI said: ' + result.raw_response, 'error');
-                alert('⚠️ AI couldn\'t detect mark\n\nAI response: "' + result.raw_response + '"\n\nTry:\n• Clearer handwriting\n• Better lighting\n• Bigger numbers\n• Dark marker');
-            } else {
-                alert('⚠️ AI couldn\'t detect mark\n\nTry:\n• Write number BIGGER\n• Use BLACK marker\n• Good lighting\n• Fill the green frame');
             }
             
-            // Auto-show debug
-            document.getElementById('debugBox').classList.add('show');
-            return null;
-        } else {
-            debugLog('⚠️ Unexpected response format', 'error');
             return null;
         }
         
     } catch (err) {
         debugLog('❌ Exception: ' + err.message, 'error');
-        debugLog('❌ Stack: ' + err.stack, 'error');
-        
-        alert('❌ Error!\n\n' + err.message + '\n\nClick bug button (🐛) to see details.');
-        
-        // Auto-show debug
-        document.getElementById('debugBox').classList.add('show');
         return null;
     }
 }
 
-function rescanMark() {
-    console.log('🔄 Rescanning mark only...');
+// ============================================
+// RESCAN
+// ============================================
+function rescan() {
+    console.log('🔄 Rescanning...');
     
-    // Reset ONLY mark state (keep barcode data!)
+    currentStudentId = null;
     currentMark = null;
-    markResult.classList.remove('show');
-    captureBtn2.style.display = 'flex';
-    loading2.classList.remove('show');
+    
+    resultsContainer.classList.remove('show');
+    captureBtn.style.display = 'flex';
+    loading.classList.remove('show');
     correctMarkInput.value = '';
     
-    // Stop camera 1 if running, but DON'T reset barcode data
-    stopCamera1();
-    
-    // Keep barcode result visible
-    // Just hide the camera 1 capture button
-    captureBtn.style.display = 'none';
-    
-    // Restart camera 2
-    startCamera2();
-    
-    // Scroll to step 2
-    step2Section.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    startCamera();
 }
 
 // ============================================
@@ -504,18 +334,18 @@ function saveEntry() {
     let finalMark = correctMarkInput.value || currentMark;
 
     if (!currentStudentId) {
-        alert('⚠️ Student ID missing!');
+        alert('⚠️ رقم الطالب مفقود!');
         return;
     }
 
     if (!finalMark) {
-        alert('⚠️ Mark missing!');
+        alert('⚠️ الدرجة مفقودة!');
         return;
     }
 
     const markNum = parseInt(finalMark);
     if (isNaN(markNum) || markNum < 0 || markNum > 100) {
-        alert('⚠️ Invalid mark!');
+        alert('⚠️ درجة غير صحيحة!');
         return;
     }
 
@@ -529,7 +359,7 @@ function saveEntry() {
     entries.unshift(entry);
     localStorage.setItem('autoEntries', JSON.stringify(entries));
 
-    showStatus(`✅ Saved: ${currentStudentId} - ${markNum}`);
+    showStatus(`✅ تم الحفظ: ${currentStudentId} - ${markNum}`);
     updateTable();
     resetAll();
 }
@@ -538,20 +368,11 @@ function resetAll() {
     currentStudentId = null;
     currentMark = null;
     
-    barcodeResult.classList.remove('show');
-    markResult.classList.remove('show');
+    resultsContainer.classList.remove('show');
     captureBtn.style.display = 'flex';
-    captureBtn2.style.display = 'flex';
     correctMarkInput.value = '';
     
-    // Disable step 2, keep it visible
-    step2Section.classList.add('disabled');
-    
-    // Scroll back to top
-    step1Section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    
-    stopCamera2();
-    startCamera1();
+    startCamera();
 }
 
 // ============================================
@@ -561,7 +382,7 @@ function updateTable() {
     countEl.textContent = entries.length;
 
     if (entries.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #999; padding: 40px;">No entries yet</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #999; padding: 40px;">لا توجد بيانات</td></tr>';
         return;
     }
 
@@ -584,7 +405,7 @@ function getColor(mark) {
 
 function exportToCSV() {
     if (entries.length === 0) {
-        alert('⚠️ No data!');
+        alert('⚠️ لا توجد بيانات!');
         return;
     }
 
@@ -601,7 +422,7 @@ function exportToCSV() {
     a.click();
     URL.revokeObjectURL(url);
 
-    showStatus('💾 CSV exported!');
+    showStatus('💾 تم التصدير!');
 }
 
 function showStatus(message) {
@@ -613,10 +434,8 @@ function showStatus(message) {
 // ============================================
 // EVENT LISTENERS
 // ============================================
-captureBtn.addEventListener('click', captureBarcode);
-captureBtn2.addEventListener('click', captureMark);
-rescanBarcodeBtn.addEventListener('click', rescanBarcode);
-rescanMarkBtn.addEventListener('click', rescanMark);
+captureBtn.addEventListener('click', captureImage);
+rescanBtn.addEventListener('click', rescan);
 saveBtn.addEventListener('click', saveEntry);
 exportBtn.addEventListener('click', exportToCSV);
 
@@ -627,11 +446,11 @@ debugLog('🚀 Starting app...', 'info');
 
 if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
     debugLog('⚠️ Not HTTPS! Camera may not work', 'error');
-    alert('⚠️ HTTPS REQUIRED! Camera needs HTTPS. Make sure URL starts with https://');
+    alert('⚠️ HTTPS مطلوب! الكاميرا تحتاج HTTPS.');
 }
 
 updateTable();
-startCamera1();
+startCamera();
 
 debugLog('✅ App initialized', 'success');
 debugLog('📱 Click 🐛 button to see debug info', 'info');
