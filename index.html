@@ -143,10 +143,10 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 500px;
-            height: 370px;
-            max-width: 85%;
-            max-height: 60%;
+            width: 420px;
+            height: 400px;
+            max-width: 80%;
+            max-height: 75%;
             border: 4px solid #FFEB3B;
             border-radius: 12px;
             box-shadow: 0 0 25px rgba(255, 235, 59, 0.6);
@@ -188,10 +188,10 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 500px;
-            height: 370px;
-            max-width: 85%;
-            max-height: 60%;
+            width: 420px;
+            height: 400px;
+            max-width: 80%;
+            max-height: 75%;
             pointer-events: none;
         }
         
@@ -294,7 +294,7 @@
         }
 
         .result-value {
-            font-size: 1.8em;
+            font-size: 1.4em;
             font-weight: bold;
             color: #2979FF;
             margin-bottom: 10px;
@@ -437,61 +437,6 @@
             animation: slideIn 0.3s;
         }
 
-        .debug-box {
-            position: fixed;
-            bottom: 10px;
-            left: 10px;
-            right: 10px;
-            max-height: 200px;
-            overflow-y: auto;
-            background: rgba(26, 35, 126, 0.95);
-            color: #FFEB3B;
-            padding: 10px;
-            border-radius: 10px;
-            font-family: monospace;
-            font-size: 11px;
-            line-height: 1.4;
-            z-index: 999;
-            display: none;
-            border: 2px solid #2979FF;
-        }
-
-        .debug-box.show {
-            display: block;
-        }
-
-        .debug-box .debug-line {
-            margin: 2px 0;
-            word-wrap: break-word;
-        }
-
-        .debug-box .debug-error {
-            color: #ff4444;
-        }
-
-        .debug-box .debug-success {
-            color: #00ff00;
-        }
-
-        .debug-box .debug-info {
-            color: #FFEB3B;
-        }
-
-        .debug-toggle {
-            position: fixed;
-            bottom: 220px;
-            left: 20px;
-            background: linear-gradient(135deg, #1A237E 0%, #2979FF 100%);
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 50%;
-            font-size: 20px;
-            cursor: pointer;
-            z-index: 1000;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        }
-
         @keyframes slideIn {
             from { transform: translateX(-400px); }
             to { transform: translateX(0); }
@@ -594,7 +539,6 @@
             </div>
         </div>
 
-        <!-- TABLE -->
         <div class="data-table">
             <div class="table-header">
                 <h3>📋 السجل (<span id="count">0</span>)</h3>
@@ -621,9 +565,6 @@
     </div>
 
     <div class="status" id="status">✅ تم الحفظ!</div>
-
-    <button class="debug-toggle" onclick="toggleDebug()" title="عرض سجل الأخطاء">🐛</button>
-    <div class="debug-box" id="debugBox"></div>
 
     <script src="app.js"></script>
 </body>
