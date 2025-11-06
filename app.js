@@ -26,67 +26,6 @@ const countEl = document.getElementById('count');
 const status = document.getElementById('status');
 
 // ============================================
-// DEBUG FUNCTIONS
-// ============================================
-let debugLogs = [];
-const maxDebugLogs = 50;
-
-function debugLog(message, type = 'info') {
-    console.log(message);
-    
-    const timestamp = new Date().toLocaleTimeString();
-    debugLogs.push({
-        time: timestamp,
-        message: message,
-        type: type
-    });
-    
-    if (debugLogs.length > maxDebugLogs) {
-        debugLogs.shift();
-    }
-    
-    updateDebugBox();
-}
-
-function updateDebugBox() {
-    const debugBox = document.getElementById('debugBox');
-    if (!debugBox) return;
-    
-    debugBox.innerHTML = debugLogs.map(log => {
-        let className = 'debug-line';
-        if (log.type === 'error') className += ' debug-error';
-        if (log.type === 'success') className += ' debug-success';
-        if (log.type === 'info') className += ' debug-info';
-        
-        return `<div class="${className}">[${log.time}] ${log.message}</div>`;
-    }).join('');
-    
-    debugBox.scrollTop = debugBox.scrollHeight;
-}
-
-function toggleDebug() {
-    const debugBox = document.getElementById('debugBox');
-    if (debugBox.classList.contains('show')) {
-        debugBox.classList.remove('show');
-    } else {
-        debugBox.classList.add('show');
-        updateDebugBox();
-    }
-}
-
-function clearDebug() {
-    debugLogs = [];
-    updateDebugBox();
-}
-
-window.addEventListener('error', function(e) {
-    debugLog('❌ Error: ' + e.message, 'error');
-    document.getElementById('debugBox').classList.add('show');
-});
-
-debugLog('🚀 App started', 'success');
-
-// ============================================
 // CAMERA MANAGEMENT
 // ============================================
 async function startCamera() {
@@ -115,7 +54,7 @@ async function startCamera() {
         
     } catch (err) {
         console.error('❌ Camera error:', err);
-        alert('❌ Camera permission required! Please allow camera access and refresh the page.');
+        alert('❌ يرجى السماح بالوصول للكاميرا وتحديث الصفحة');
     }
 }
 
@@ -137,7 +76,7 @@ async function captureImage() {
     console.log('📸 Capturing image...');
     
     if (!videoElement.videoWidth || videoElement.videoWidth === 0) {
-        alert('⚠️ Camera not ready yet. Please wait a moment.');
+        alert('⚠️ انتظر قليلاً حتى تصبح الكاميرا جاهزة');
         return;
     }
     
@@ -154,7 +93,7 @@ async function captureImage() {
 
     const imageData = canvas.toDataURL('image/jpeg', 0.7);
     
-    debugLog('📸 Image size: ' + Math.round(imageData.length / 1024) + 'KB', 'info');
+    console.log('📸 Image size: ' + Math.round(imageData.length / 1024) + 'KB');
     
     // Process BOTH barcode and mark
     await processBoth(imageData);
@@ -162,7 +101,7 @@ async function captureImage() {
 
 async function processBoth(imageData) {
     try {
-        debugLog('🔍 Processing barcode and mark...', 'info');
+        console.log('🔍 Processing barcode and mark...');
         
         // Process barcode and mark in parallel
         const [barcodeResult, markResult] = await Promise.all([
@@ -177,12 +116,12 @@ async function processBoth(imageData) {
             currentStudentId = barcodeResult;
             studentIdValue.textContent = barcodeResult;
             studentIdValue.classList.remove('error');
-            debugLog('✅ Barcode: ' + barcodeResult, 'success');
+            console.log('✅ Barcode: ' + barcodeResult);
         } else {
             currentStudentId = null;
             studentIdValue.textContent = '❌ لم يتم الكشف';
             studentIdValue.classList.add('error');
-            debugLog('❌ Barcode not detected', 'error');
+            console.log('❌ Barcode not detected');
         }
         
         // Display mark result
@@ -191,13 +130,13 @@ async function processBoth(imageData) {
             markValue.textContent = markResult;
             markValue.classList.remove('error');
             correctMarkInput.value = markResult;
-            debugLog('✅ Mark: ' + markResult, 'success');
+            console.log('✅ Mark: ' + markResult);
         } else {
             currentMark = null;
             markValue.textContent = '❌ لم يتم الكشف';
             markValue.classList.add('error');
             correctMarkInput.value = '';
-            debugLog('❌ Mark not detected', 'error');
+            console.log('❌ Mark not detected');
         }
         
         // Show results
@@ -217,7 +156,7 @@ async function processBoth(imageData) {
         console.error('Error:', err);
         loading.classList.remove('show');
         captureBtn.style.display = 'flex';
-        alert('❌ Error processing image');
+        alert('❌ خطأ في معالجة الصورة');
     }
 }
 
@@ -256,11 +195,11 @@ function detectBarcode(imageData) {
 // ============================================
 async function detectMark(imageData) {
     try {
-        debugLog('🤖 Detecting mark using AI...', 'info');
+        console.log('🤖 Detecting mark using AI...');
         
         const WORKER_URL = 'https://mark-detector.baydershghl.workers.dev';
         
-        debugLog('📡 Sending to Worker...', 'info');
+        console.log('📡 Sending to Worker...');
         
         const response = await fetch(WORKER_URL, {
             method: 'POST',
@@ -272,40 +211,39 @@ async function detectMark(imageData) {
             })
         });
         
-        debugLog('📬 Response: ' + response.status, response.ok ? 'success' : 'error');
+        console.log('📬 Response: ' + response.status);
         
         if (!response.ok) {
             const error = await response.json();
-            debugLog('❌ Error: ' + JSON.stringify(error), 'error');
+            console.error('❌ Error:', error);
             
             if (response.status === 401) {
-                alert('❌ API Key Error! Check Cloudflare Worker settings.');
+                alert('❌ خطأ في مفتاح API! تحقق من إعدادات Cloudflare Worker');
             } else {
-                alert('❌ Worker Error! Status: ' + response.status);
+                alert('❌ خطأ في Worker! الحالة: ' + response.status);
             }
             
-            document.getElementById('debugBox').classList.add('show');
             return null;
         }
         
         const result = await response.json();
-        debugLog('📊 Result: ' + JSON.stringify(result), 'success');
+        console.log('📊 Result:', result);
         
         if (result.mark) {
-            debugLog(`✅ AI detected: ${result.mark}`, 'success');
+            console.log(`✅ AI detected: ${result.mark}`);
             return result.mark.toString();
         } else {
-            debugLog('❌ AI returned null', 'error');
+            console.log('❌ AI returned null');
             
             if (result.raw_response) {
-                debugLog('⚠️ AI said: ' + result.raw_response, 'error');
+                console.log('⚠️ AI said: ' + result.raw_response);
             }
             
             return null;
         }
         
     } catch (err) {
-        debugLog('❌ Exception: ' + err.message, 'error');
+        console.error('❌ Exception:', err);
         return null;
     }
 }
@@ -442,15 +380,14 @@ exportBtn.addEventListener('click', exportToCSV);
 // ============================================
 // INIT
 // ============================================
-debugLog('🚀 Starting app...', 'info');
+console.log('🚀 Starting app...');
 
 if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-    debugLog('⚠️ Not HTTPS! Camera may not work', 'error');
+    console.warn('⚠️ Not HTTPS! Camera may not work');
     alert('⚠️ HTTPS مطلوب! الكاميرا تحتاج HTTPS.');
 }
 
 updateTable();
 startCamera();
 
-debugLog('✅ App initialized', 'success');
-debugLog('📱 Click 🐛 button to see debug info', 'info');
+console.log('✅ App initialized');
